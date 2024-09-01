@@ -1,24 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getUserCards, activateCard, deactivateCard, deleteCard } from '../../services/api';
-import { Table, Tag, Space, Button, message, Popconfirm } from 'antd';
-import { EyeOutlined, CheckCircleOutlined, StopOutlined, DeleteOutlined } from '@ant-design/icons';
+import { getUserCards, getAllCards, activateCard, deactivateCard, deleteCard } from '../../services/api';
+import useAuth from '../../hooks/useAuth';
+import { Table, Tag, Space, Button, message, Popconfirm, Tabs, Card, Typography, Row, Col, Statistic, Input } from 'antd';
+import { EyeOutlined, CheckCircleOutlined, StopOutlined, DeleteOutlined, CreditCardOutlined, AppstoreOutlined, UserOutlined, SearchOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
+
+const { TabPane } = Tabs;
+const { Title, Text } = Typography;
+
+const StyledCard = styled(Card)`
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+`;
+
+const StyledTable = styled(Table)`
+  .ant-table-thead > tr > th {
+    background-color: #f0f2f5;
+    font-weight: 600;
+  }
+
+  .ant-table-tbody > tr:hover > td {
+    background-color: #e6f7ff;
+  }
+`;
+
+const ActionButton = styled(Button)`
+  width: 100px;
+`;
 
 const CardList = () => {
-    const [cards, setCards] = useState([]);
+    const [allCards, setAllCards] = useState([]);
+    const [assignedCards, setAssignedCards] = useState([]);
+    const [unassignedCards, setUnassignedCards] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [searchText, setSearchText] = useState('');
+    const { user } = useAuth();
 
     useEffect(() => {
         fetchCards();
-    }, []);
+    }, [user]);
 
     const fetchCards = async () => {
         try {
             setLoading(true);
-            const fetchedCards = await getUserCards();
-            setCards(fetchedCards);
+            let fetchedCards;
+            if (user.role === 'admin') {
+                fetchedCards = await getAllCards();
+            } else {
+                fetchedCards = await getUserCards();
+            }
+
+            if (user.role === 'admin') {
+                setAllCards(fetchedCards);
+                const assigned = fetchedCards.filter(card => card.assignedTo && card.assignedTo.role !== 'admin');
+                const unassigned = fetchedCards.filter(card => !card.assignedTo || card.assignedTo.role === 'admin');
+                setAssignedCards(assigned);
+                setUnassignedCards(unassigned);
+            } else {
+                setAssignedCards(fetchedCards);
+            }
         } catch (error) {
-            message.error('Failed to fetch cards');
+            message.error('Failed to fetch cards: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -30,7 +73,7 @@ const CardList = () => {
             message.success('Card activated successfully');
             fetchCards();
         } catch (error) {
-            message.error('Failed to activate card');
+            message.error('Failed to activate card: ' + error.message);
         }
     };
 
@@ -40,24 +83,20 @@ const CardList = () => {
             message.success('Card deactivated successfully');
             fetchCards();
         } catch (error) {
-            message.error('Failed to deactivate card');
+            message.error('Failed to deactivate card: ' + error.message);
         }
     };
 
-    const handleDelete = async (record) => {
-        if (!record || !record._id) {
-            message.error('Invalid card data');
-            return;
-        }
-
+    const handleDelete = async (id) => {
         try {
-            await deleteCard(record._id);
+            await deleteCard(id);
             message.success('Card deleted successfully');
-            fetchCards(); // Refresh the list after deletion
+            fetchCards();
         } catch (error) {
-            message.error('Failed to delete card: ' + (error.response?.data?.message || error.message));
+            message.error('Failed to delete card: ' + error.message);
         }
     };
+
     const columns = [
         {
             title: 'URL Code',
@@ -65,10 +104,14 @@ const CardList = () => {
             key: 'urlCode',
         },
         {
-            title: 'Custom URL',
-            dataIndex: 'customUrlCode',
-            key: 'customUrlCode',
-            render: (text) => text || '-',
+            title: 'Name',
+            dataIndex: ['details', 'name'],
+            key: 'name',
+            render: (text) => text || 'N/A',
+            filteredValue: [searchText],
+            onFilter: (value, record) =>
+                (record.details?.name?.toLowerCase() || '').includes(value.toLowerCase()) ||
+                record.urlCode.toLowerCase().includes(value.toLowerCase()),
         },
         {
             title: 'Status',
@@ -81,64 +124,194 @@ const CardList = () => {
             ),
         },
         {
+            title: 'Assigned To',
+            dataIndex: ['assignedTo', 'username'],
+            key: 'assignedTo',
+            render: (text, record) => text || 'Unassigned',
+        },
+        {
             title: 'Start Date',
             dataIndex: 'startDate',
             key: 'startDate',
             render: (date) => date ? new Date(date).toLocaleDateString() : '-',
         },
+        ...(user.role === 'admin' ? [{
+            title: 'Booking ID',
+            dataIndex: 'purchaseId',
+            key: 'purchaseId',
+        }] : []),
         {
             title: 'Actions',
             key: 'actions',
             render: (_, record) => (
-                <Space size="middle">
+                <Space size="small">
                     <Link to={`/card/${record.urlCode}`}>
-                        <Button type="primary" icon={<EyeOutlined />}>
+                        <ActionButton type="primary" icon={<EyeOutlined />}>
                             View
-                        </Button>
+                        </ActionButton>
                     </Link>
-                    {record.isActive ? (
-                        <Button
-                            onClick={() => handleDeactivate(record.urlCode)}
-                            icon={<StopOutlined />}
-                            danger
-                        >
-                            Deactivate
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={() => handleActivate(record.urlCode)}
-                            icon={<CheckCircleOutlined />}
-                            style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
-                        >
-                            Activate
-                        </Button>
+                    {(user.role === 'admin' || record.assignedTo?._id === user._id) && (
+                        <>
+                            {record.isActive ? (
+                                <ActionButton
+                                    onClick={() => handleDeactivate(record.urlCode)}
+                                    icon={<StopOutlined />}
+                                    danger
+                                >
+                                    Deactivate
+                                </ActionButton>
+                            ) : (
+                                <ActionButton
+                                    onClick={() => handleActivate(record.urlCode)}
+                                    icon={<CheckCircleOutlined />}
+                                    style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: 'white' }}
+                                >
+                                    Activate
+                                </ActionButton>
+                            )}
+                        </>
                     )}
-                    <Popconfirm
-                        title="Are you sure you want to delete this card?"
-                        onConfirm={() => handleDelete(record.urlCode)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button icon={<DeleteOutlined />} danger>
-                            Delete
-                        </Button>
-                    </Popconfirm>
+                    {user.role === 'admin' && (
+                        <Popconfirm
+                            title="Are you sure you want to delete this card?"
+                            onConfirm={() => handleDelete(record._id)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <ActionButton icon={<DeleteOutlined />} danger>
+                                Delete
+                            </ActionButton>
+                        </Popconfirm>
+                    )}
                 </Space>
+            ),
+        },
+    ];
+
+    const tabItems = [
+        {
+            key: '1',
+            label: (
+                <span>
+                    <AppstoreOutlined />
+                    <span className="ml-2">All Cards</span>
+                </span>
+            ),
+            children: (
+                <StyledTable
+                    columns={columns}
+                    dataSource={allCards}
+                    rowKey="_id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                />
+            ),
+        },
+        {
+            key: '2',
+            label: (
+                <span>
+                    <UserOutlined />
+                    <span className="ml-2">Assigned Cards</span>
+                </span>
+            ),
+            children: (
+                <StyledTable
+                    columns={columns}
+                    dataSource={assignedCards}
+                    rowKey="_id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                />
+            ),
+        },
+        {
+            key: '3',
+            label: (
+                <span>
+                    <CreditCardOutlined />
+                    <span className="ml-2">Unassigned Cards</span>
+                </span>
+            ),
+            children: (
+                <StyledTable
+                    columns={columns}
+                    dataSource={unassignedCards}
+                    rowKey="_id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
+                />
             ),
         },
     ];
 
     return (
         <div className="container mx-auto px-4 py-8">
-            <h2 className="text-3xl font-bold mb-6 text-gray-800">Your Business Cards</h2>
-            <Table
-                columns={columns}
-                dataSource={cards}
-                rowKey="_id"
-                loading={loading}
-                pagination={{ pageSize: 10 }}
-                className="shadow-lg rounded-lg overflow-hidden"
-            />
+            <Row gutter={[16, 16]} className="mb-6">
+                <Col xs={24} sm={12} md={6}>
+                    <StyledCard>
+                        <Statistic
+                            title="Total Cards"
+                            value={allCards.length}
+                            prefix={<CreditCardOutlined />}
+                            valueStyle={{ color: '#3f8600' }}
+                        />
+                    </StyledCard>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <StyledCard>
+                        <Statistic
+                            title="Active Cards"
+                            value={allCards.filter(card => card.isActive).length}
+                            prefix={<CheckCircleOutlined />}
+                            valueStyle={{ color: '#52c41a' }}
+                        />
+                    </StyledCard>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <StyledCard>
+                        <Statistic
+                            title="Inactive Cards"
+                            value={allCards.filter(card => !card.isActive).length}
+                            prefix={<StopOutlined />}
+                            valueStyle={{ color: '#cf1322' }}
+                        />
+                    </StyledCard>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <StyledCard>
+                        <Statistic
+                            title="Assigned Cards"
+                            value={assignedCards.length}
+                            prefix={<UserOutlined />}
+                            valueStyle={{ color: '#1890ff' }}
+                        />
+                    </StyledCard>
+                </Col>
+            </Row>
+            <StyledCard className="mb-6">
+                <Title level={2} className="mb-0">
+                    <CreditCardOutlined className="mr-2" />
+                    Business Cards
+                </Title>
+                <Text type="secondary">Manage and view your business cards</Text>
+                <Row gutter={16} className="mt-4">
+                    <Col xs={24} sm={12} md={8} lg={6}>
+                        <Input
+                            placeholder="Search by name or URL code"
+                            prefix={<SearchOutlined />}
+                            onChange={(e) => setSearchText(e.target.value)}
+                        />
+                    </Col>
+                </Row>
+            </StyledCard>
+            <StyledCard>
+                <Tabs
+                    defaultActiveKey="1"
+                    items={user.role === 'admin' ? tabItems : [tabItems[1]]}
+                    tabBarGutter={24}
+                />
+            </StyledCard>
         </div>
     );
 };

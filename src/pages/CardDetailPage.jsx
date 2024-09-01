@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCard, updateCard, activateCard, deactivateCard, setUrlCode, reAssignCard, getNonAdminUsers, deleteCard, getAllCards } from '../services/api';
+import { getCard, updateCard, activateCard, deactivateCard, setUrlCode, reAssignCard, getNonAdminUsers, deleteCard } from '../services/api';
 import useAuth from '../hooks/useAuth';
-import { Form, Input, Button, Card, Typography, message, Switch, Select, Popconfirm, Space, Divider, Avatar, Tooltip, Tag, Skeleton, Row, Col, Tabs, List, Modal } from 'antd';
+import { Form, Input, Button, Card, Typography, message, Switch, Select, Popconfirm, Space, Divider, Avatar, Tooltip, Tag, Skeleton, Row, Col, Modal, Descriptions } from 'antd';
 import { EditOutlined, SaveOutlined, DeleteOutlined, CloseOutlined, LinkOutlined, UserOutlined, MailOutlined, PhoneOutlined, GlobalOutlined, HomeOutlined, CopyOutlined, QrcodeOutlined, LoadingOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
 
 const CardDetailPage = () => {
     const { urlCode: initialUrlCode } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const [card, setCard] = useState(null);
-    const [allCards, setAllCards] = useState([]);
     const [isEditing, setIsEditing] = useState(false);
     const [newUrlCode, setNewUrlCode] = useState('');
     const [newUserId, setNewUserId] = useState('');
@@ -27,7 +25,6 @@ const CardDetailPage = () => {
     useEffect(() => {
         fetchCardDetails();
         if (user?.role === 'admin') {
-            fetchAllCards();
             fetchNonAdminUsers();
         }
     }, [initialUrlCode, user?.role]);
@@ -43,15 +40,6 @@ const CardDetailPage = () => {
             message.error('Error fetching card details');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchAllCards = async () => {
-        try {
-            const cards = await getAllCards();
-            setAllCards(cards);
-        } catch (error) {
-            message.error('Error fetching all cards');
         }
     };
 
@@ -198,54 +186,57 @@ const CardDetailPage = () => {
                                     size="large"
                                 />
                             </Tooltip>
-                            <Popconfirm
-                                title="Are you sure you want to delete this card?"
-                                onConfirm={handleDelete}
-                                okText="Yes"
-                                cancelText="No"
-                            >
-                                <Tooltip title="Delete">
-                                    <Button icon={<DeleteOutlined />} danger size="large" shape="circle" />
-                                </Tooltip>
-                            </Popconfirm>
+                            {user.role === 'admin' && (
+                                <Popconfirm
+                                    title="Are you sure you want to delete this card?"
+                                    onConfirm={handleDelete}
+                                    okText="Yes"
+                                    cancelText="No"
+                                >
+                                    <Tooltip title="Delete">
+                                        <Button icon={<DeleteOutlined />} danger size="large" shape="circle" />
+                                    </Tooltip>
+                                </Popconfirm>
+                            )}
                         </Space>
                     </motion.div>
                 }
             >
-                <Tabs defaultActiveKey="1" size="large" className="p-6">
-                    <TabPane tab="Card Details" key="1">
+                <Row gutter={24}>
+                    <Col span={16}>
+                        <Title level={3}>Card Details</Title>
                         <Form
                             form={form}
                             onFinish={handleSave}
                             layout="vertical"
                         >
-                            <Row gutter={24}>
-                                <Col span={8}>
+                            <Row gutter={16}>
+                                <Col span={12}>
                                     <Form.Item name="name" label="Name">
                                         <Input prefix={<UserOutlined />} disabled={!isEditing} />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={12}>
                                     <Form.Item name="title" label="Title">
                                         <Input disabled={!isEditing} />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={12}>
                                     <Form.Item name="company" label="Company">
                                         <Input disabled={!isEditing} />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={12}>
                                     <Form.Item name="email" label="Email">
                                         <Input prefix={<MailOutlined />} disabled={!isEditing} />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={12}>
                                     <Form.Item name="phone" label="Phone">
                                         <Input prefix={<PhoneOutlined />} disabled={!isEditing} />
                                     </Form.Item>
                                 </Col>
-                                <Col span={8}>
+                                <Col span={12}>
                                     <Form.Item name="website" label="Website">
                                         <Input prefix={<GlobalOutlined />} disabled={!isEditing} />
                                     </Form.Item>
@@ -273,111 +264,81 @@ const CardDetailPage = () => {
                                 </motion.div>
                             )}
                         </Form>
-                    </TabPane>
-                    <TabPane tab="Card Info" key="2">
-                        <Row gutter={24}>
-                            <Col span={12}>
-                                <Space direction="vertical" size="large" className="w-full">
-                                    <div>
-                                        <Text strong className="text-lg">URL Code: </Text>
-                                        <Tag color="blue" className="text-lg p-2">{card.urlCode}</Tag>
+                    </Col>
+                    <Col span={8}>
+                        <Title level={3}>Card Info</Title>
+                        <Card className="shadow-md">
+                            <Descriptions column={1} bordered>
+                                <Descriptions.Item label="URL Code">
+                                    <Space>
+                                        <Tag color="blue">{card.urlCode}</Tag>
                                         <Tooltip title="Copy to clipboard">
                                             <Button
                                                 icon={<CopyOutlined />}
                                                 onClick={() => copyToClipboard(card.urlCode)}
-                                                className="ml-2"
-                                                size="large"
+                                                size="small"
                                             />
                                         </Tooltip>
                                         <Button
                                             type="link"
                                             onClick={() => setUrlModalVisible(true)}
-                                            className="ml-2"
+                                            size="small"
                                         >
-                                            Change URL
+                                            Change
                                         </Button>
-                                    </div>
-                                    <div>
-                                        <Text strong className="text-lg">Status: </Text>
-                                        <Tag color={card.isActive ? 'success' : 'error'} className="text-lg p-2">
-                                            {card.isActive ? 'Active' : 'Inactive'}
-                                        </Tag>
-                                    </div>
-                                    <div>
-                                        <Text strong className="text-lg">Assigned To: </Text>
-                                        <Tag color="purple" className="text-lg p-2">{card.assignedTo?.username || 'Unassigned'}</Tag>
-                                    </div>
-                                </Space>
-                            </Col>
-                            <Col span={12}>
-                                <Space direction="vertical" size="large" className="w-full">
-                                    <div>
-                                        <Text strong className="text-lg">Start Date: </Text>
-                                        <Text className="text-lg">{card.startDate ? new Date(card.startDate).toLocaleString() : 'Not started'}</Text>
-                                    </div>
-                                    <div>
-                                        <Text strong className="text-lg">Created At: </Text>
-                                        <Text className="text-lg">{new Date(card.createdAt).toLocaleString()}</Text>
-                                    </div>
-                                    <div>
-                                        <Text strong className="text-lg">Updated At: </Text>
-                                        <Text className="text-lg">{new Date(card.updatedAt).toLocaleString()}</Text>
-                                    </div>
-                                </Space>
-                            </Col>
-                        </Row>
-                    </TabPane>
-                    <TabPane tab="QR Code" key="3">
-                        <div className="flex justify-center items-center h-64">
-                            <QrcodeOutlined style={{ fontSize: '160px', color: '#1890ff' }} />
-                        </div>
-                        <Text type="secondary" className="block text-center mt-6 text-lg">QR Code for this card will be generated here</Text>
-                    </TabPane>
-                    {user.role === 'admin' && (
-                        <TabPane tab="Admin Settings" key="4">
-                            <Title level={4} className="mb-6">Reassign Card</Title>
-                            <Form layout="inline" onFinish={handleReassign} className="mb-8">
-                                <Form.Item name="newUserId" className="mb-4">
-                                    <Select
-                                        style={{ width: 300 }}
-                                        placeholder="Select user"
-                                        onChange={(value) => setNewUserId(value)}
-                                        size="large"
-                                    >
-                                        {nonAdminUsers.map(user => (
-                                            <Option key={user._id} value={user._id}>{user.username}</Option>
-                                        ))}
-                                    </Select>
-                                </Form.Item>
-                                <Form.Item>
-                                    <Button type="primary" htmlType="submit" size="large">
-                                        Reassign
-                                    </Button>
-                                </Form.Item>
-                            </Form>
-                            <Divider />
-                            <Title level={4} className="mb-6">All Cards in System</Title>
-                            <List
-                                dataSource={allCards}
-                                renderItem={item => (
-                                    <List.Item
-                                        key={item._id}
-                                        actions={[
-                                            <Button onClick={() => navigate(`/card/${item.urlCode}`)}>View</Button>
-                                        ]}
-                                    >
-                                        <List.Item.Meta
-                                            avatar={<Avatar icon={<UserOutlined />} />}
-                                            title={item.details?.name || 'Unnamed Card'}
-                                            description={`Assigned to: ${item.assignedTo?.username || 'Unassigned'}`}
-                                        />
-                                        <div>URL Code: {item.urlCode}</div>
-                                    </List.Item>
-                                )}
-                            />
-                        </TabPane>
-                    )}
-                </Tabs>
+                                    </Space>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Status">
+                                    <Tag color={card.isActive ? 'success' : 'error'}>
+                                        {card.isActive ? 'Active' : 'Inactive'}
+                                    </Tag>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Assigned To">
+                                    {card.assignedTo?.username || 'Unassigned'}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Start Date">
+                                    {card.startDate ? new Date(card.startDate).toLocaleString() : 'Not started'}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Created At">
+                                    {new Date(card.createdAt).toLocaleString()}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Updated At">
+                                    {new Date(card.updatedAt).toLocaleString()}
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </Card>
+                        <Divider />
+                        <Title level={3}>QR Code</Title>
+                        <Card className="shadow-md text-center">
+                            <QrcodeOutlined style={{ fontSize: '120px', color: '#1890ff' }} />
+                            <Text type="secondary" className="block mt-4">QR Code will be generated here</Text>
+                        </Card>
+                        {user.role === 'admin' && (
+                            <>
+                                <Divider />
+                                <Title level={3}>Admin Actions</Title>
+                                <Card className="shadow-md">
+                                    <Form layout="vertical" onFinish={handleReassign}>
+                                        <Form.Item name="newUserId" label="Reassign Card">
+                                            <Select
+                                                style={{ width: '100%' }}
+                                                placeholder="Select user"
+                                                onChange={(value) => setNewUserId(value)}
+                                            >
+                                                {nonAdminUsers.map(user => (
+                                                    <Option key={user._id} value={user._id}>{user.username}</Option>
+                                                ))}
+                                            </Select>
+                                        </Form.Item>
+                                        <Button type="primary" htmlType="submit" block>
+                                            Reassign
+                                        </Button>
+                                    </Form>
+                                </Card>
+                            </>
+                        )}
+                    </Col>
+                </Row>
             </Card>
 
             <Modal

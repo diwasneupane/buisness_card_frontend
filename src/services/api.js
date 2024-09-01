@@ -55,7 +55,7 @@ export const getCard = async (urlCode) => {
 export const updateCard = async (urlCode, data) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${urlCode}`,
+      `${BASE_URL}business-cards/update/${urlCode}`,
       data
     );
     return response.data.data;
@@ -68,7 +68,7 @@ export const updateCard = async (urlCode, data) => {
 export const activateCard = async (urlCode) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${urlCode}/activate`
+      `${BASE_URL}business-cards/activate/${urlCode}`
     );
     return response.data.data;
   } catch (error) {
@@ -80,7 +80,7 @@ export const activateCard = async (urlCode) => {
 export const deactivateCard = async (urlCode) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${urlCode}/deactivate`
+      `${BASE_URL}business-cards/deactivate/${urlCode}`
     );
     return response.data.data;
   } catch (error) {
@@ -92,7 +92,7 @@ export const deactivateCard = async (urlCode) => {
 export const reAssignCard = async (urlCode, newUserId) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${urlCode}/reassign`,
+      `${BASE_URL}business-cards/reassign/${urlCode}`,
       { newUserId }
     );
     return response.data.data;
@@ -105,7 +105,7 @@ export const reAssignCard = async (urlCode, newUserId) => {
 export const setUrlCode = async (cardId, newUrlCode) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${cardId}/url-code`,
+      `${BASE_URL}business-cards/url-code/${cardId}`,
       { newUrlCode }
     );
     return response.data.data;
@@ -129,7 +129,9 @@ export const getNonAdminUsers = async () => {
 
 export const deleteCard = async (id) => {
   try {
-    const response = await axios.delete(`${BASE_URL}business-cards/${id}`);
+    const response = await axios.delete(
+      `${BASE_URL}business-cards/delete/${id}`
+    );
     return response.data.data;
   } catch (error) {
     console.error("Error deleting card:", error);
