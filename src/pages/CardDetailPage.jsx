@@ -1,13 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getCard, updateCard, activateCard, deactivateCard, setUrlCode, reAssignCard, getNonAdminUsers, deleteCard } from '../services/api';
+import { getCard, updateCard, activateCard, deactivateCard, setUrlCode, deleteCard } from '../services/api';
 import useAuth from '../hooks/useAuth';
-import { Form, Input, Button, Card, Typography, message, Switch, Select, Popconfirm, Space, Divider, Avatar, Tooltip, Tag, Skeleton, Row, Col, Modal, Descriptions } from 'antd';
+import { Form, Input, Button, Card, Typography, message, Switch, Popconfirm, Space, Divider, Avatar, Tooltip, Tag, Skeleton, Row, Col, Modal } from 'antd';
 import { EditOutlined, SaveOutlined, DeleteOutlined, CloseOutlined, LinkOutlined, UserOutlined, MailOutlined, PhoneOutlined, GlobalOutlined, HomeOutlined, CopyOutlined, QrcodeOutlined, LoadingOutlined } from '@ant-design/icons';
 import { motion } from 'framer-motion';
+import styled from 'styled-components';
 
 const { Title, Text, Paragraph } = Typography;
-const { Option } = Select;
+
+const StyledCard = styled(Card)`
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+`;
+
+const HeaderBackground = styled.div`
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  border-radius: 12px 12px 0 0;
+`;
+
+const ActionButton = styled(Button)`
+  margin: 0 5px;
+`;
 
 const CardDetailPage = () => {
     const { urlCode: initialUrlCode } = useParams();
@@ -16,18 +35,13 @@ const CardDetailPage = () => {
     const [card, setCard] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [newUrlCode, setNewUrlCode] = useState('');
-    const [newUserId, setNewUserId] = useState('');
-    const [nonAdminUsers, setNonAdminUsers] = useState([]);
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(true);
     const [urlModalVisible, setUrlModalVisible] = useState(false);
 
     useEffect(() => {
         fetchCardDetails();
-        if (user?.role === 'admin') {
-            fetchNonAdminUsers();
-        }
-    }, [initialUrlCode, user?.role]);
+    }, [initialUrlCode]);
 
     const fetchCardDetails = async () => {
         try {
@@ -40,15 +54,6 @@ const CardDetailPage = () => {
             message.error('Error fetching card details');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const fetchNonAdminUsers = async () => {
-        try {
-            const users = await getNonAdminUsers();
-            setNonAdminUsers(users);
-        } catch (error) {
-            message.error('Error fetching non-admin users');
         }
     };
 
@@ -104,17 +109,6 @@ const CardDetailPage = () => {
         }
     };
 
-    const handleReassign = async () => {
-        try {
-            await reAssignCard(card.urlCode, newUserId);
-            message.success('Card reassigned successfully');
-            fetchCardDetails();
-            setNewUserId('');
-        } catch (error) {
-            message.error('Error reassigning card');
-        }
-    };
-
     const handleDelete = async () => {
         if (!card || !card._id) {
             message.error('Invalid card data');
@@ -155,122 +149,112 @@ const CardDetailPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="max-w-6xl mx-auto px-8 py-12"
+            className="max-w-6xl mx-auto px-4 py-8"
         >
-            <Card
-                className="shadow-2xl rounded-lg overflow-hidden"
-                cover={
-                    <motion.div
-                        initial={{ y: -20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="bg-gradient-to-r from-blue-500 to-purple-600 h-48 flex items-center justify-between px-12 py-8"
-                    >
-                        <div className="flex items-center">
-                            <Avatar size={120} icon={<UserOutlined />} src={card.details?.avatarUrl} />
-                            <div className="ml-8 text-white">
-                                <Title level={2} style={{ color: 'white', margin: 0 }}>{card.details?.name || 'Unnamed Card'}</Title>
-                                <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '20px' }}>{card.details?.title || 'No Title'}</Text>
-                            </div>
+            <StyledCard>
+                <HeaderBackground>
+                    <div className="flex items-center">
+                        <Avatar size={100} icon={<UserOutlined />} src={card.details?.avatarUrl} />
+                        <div className="ml-8 text-white">
+                            <Title level={2} style={{ color: 'white', margin: 0 }}>{card.details?.name || 'Unnamed Card'}</Title>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '18px' }}>{card.details?.title || 'No Title'}</Text>
                         </div>
-                        <Space size="large">
-                            <Tooltip title="Edit">
-                                <Button icon={<EditOutlined />} onClick={() => setIsEditing(true)} size="large" shape="circle" />
-                            </Tooltip>
-                            <Tooltip title={card.isActive ? "Deactivate" : "Activate"}>
-                                <Switch
-                                    checked={card.isActive}
-                                    onChange={card.isActive ? handleDeactivate : handleActivate}
-                                    checkedChildren="Active"
-                                    unCheckedChildren="Inactive"
-                                    size="large"
-                                />
-                            </Tooltip>
-                            {user.role === 'admin' && (
-                                <Popconfirm
-                                    title="Are you sure you want to delete this card?"
-                                    onConfirm={handleDelete}
-                                    okText="Yes"
-                                    cancelText="No"
-                                >
-                                    <Tooltip title="Delete">
-                                        <Button icon={<DeleteOutlined />} danger size="large" shape="circle" />
-                                    </Tooltip>
-                                </Popconfirm>
-                            )}
-                        </Space>
-                    </motion.div>
-                }
-            >
-                <Row gutter={24}>
-                    <Col span={16}>
-                        <Title level={3}>Card Details</Title>
-                        <Form
-                            form={form}
-                            onFinish={handleSave}
-                            layout="vertical"
-                        >
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item name="name" label="Name">
-                                        <Input prefix={<UserOutlined />} disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="title" label="Title">
-                                        <Input disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="company" label="Company">
-                                        <Input disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="email" label="Email">
-                                        <Input prefix={<MailOutlined />} disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="phone" label="Phone">
-                                        <Input prefix={<PhoneOutlined />} disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="website" label="Website">
-                                        <Input prefix={<GlobalOutlined />} disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={24}>
-                                    <Form.Item name="address" label="Address">
-                                        <Input.TextArea rows={4} disabled={!isEditing} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-                            {isEditing && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <Space size="large" className="mt-4">
-                                        <Button type="primary" htmlType="submit" icon={<SaveOutlined />} size="large">
-                                            Save Changes
-                                        </Button>
-                                        <Button onClick={() => setIsEditing(false)} icon={<CloseOutlined />} size="large">
-                                            Cancel
-                                        </Button>
-                                    </Space>
-                                </motion.div>
-                            )}
-                        </Form>
-                    </Col>
-                    <Col span={8}>
-                        <Title level={3}>Card Info</Title>
-                        <Card className="shadow-md">
-                            <Descriptions column={1} bordered>
-                                <Descriptions.Item label="URL Code">
-                                    <Space>
+                    </div>
+                    <Space size="small">
+                        <ActionButton icon={<EditOutlined />} onClick={() => setIsEditing(true)} size="large">
+                            Edit
+                        </ActionButton>
+                        <Switch
+                            checked={card.isActive}
+                            onChange={card.isActive ? handleDeactivate : handleActivate}
+                            checkedChildren="Active"
+                            unCheckedChildren="Inactive"
+                            size="large"
+                        />
+                        {(user.role === 'admin' || user._id === card.assignedTo?._id) && (
+                            <Popconfirm
+                                title="Are you sure you want to delete this card?"
+                                onConfirm={handleDelete}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <ActionButton icon={<DeleteOutlined />} danger size="large">
+                                    Delete
+                                </ActionButton>
+                            </Popconfirm>
+                        )}
+                    </Space>
+                </HeaderBackground>
+                <div className="p-6">
+                    <Row gutter={24}>
+                        <Col span={16}>
+                            <Title level={3}>Card Details</Title>
+                            <Form
+                                form={form}
+                                onFinish={handleSave}
+                                layout="vertical"
+                            >
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item name="name" label="Name">
+                                            <Input prefix={<UserOutlined />} disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="title" label="Title">
+                                            <Input disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="company" label="Company">
+                                            <Input disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="email" label="Email">
+                                            <Input prefix={<MailOutlined />} disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="phone" label="Phone">
+                                            <Input prefix={<PhoneOutlined />} disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="website" label="Website">
+                                            <Input prefix={<GlobalOutlined />} disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={24}>
+                                        <Form.Item name="address" label="Address">
+                                            <Input.TextArea rows={4} disabled={!isEditing} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                {isEditing && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        <Space size="small" className="mt-4">
+                                            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} size="large">
+                                                Save Changes
+                                            </Button>
+                                            <Button onClick={() => setIsEditing(false)} icon={<CloseOutlined />} size="large">
+                                                Cancel
+                                            </Button>
+                                        </Space>
+                                    </motion.div>
+                                )}
+                            </Form>
+                        </Col>
+                        <Col span={8}>
+                            <Title level={3}>Card Info</Title>
+                            <StyledCard>
+                                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                    <div>
+                                        <Text strong>URL Code: </Text>
                                         <Tag color="blue">{card.urlCode}</Tag>
                                         <Tooltip title="Copy to clipboard">
                                             <Button
@@ -286,60 +270,41 @@ const CardDetailPage = () => {
                                         >
                                             Change
                                         </Button>
-                                    </Space>
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Status">
-                                    <Tag color={card.isActive ? 'success' : 'error'}>
-                                        {card.isActive ? 'Active' : 'Inactive'}
-                                    </Tag>
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Assigned To">
-                                    {card.assignedTo?.username || 'Unassigned'}
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Start Date">
-                                    {card.startDate ? new Date(card.startDate).toLocaleString() : 'Not started'}
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Created At">
-                                    {new Date(card.createdAt).toLocaleString()}
-                                </Descriptions.Item>
-                                <Descriptions.Item label="Updated At">
-                                    {new Date(card.updatedAt).toLocaleString()}
-                                </Descriptions.Item>
-                            </Descriptions>
-                        </Card>
-                        <Divider />
-                        <Title level={3}>QR Code</Title>
-                        <Card className="shadow-md text-center">
-                            <QrcodeOutlined style={{ fontSize: '120px', color: '#1890ff' }} />
-                            <Text type="secondary" className="block mt-4">QR Code will be generated here</Text>
-                        </Card>
-                        {user.role === 'admin' && (
-                            <>
-                                <Divider />
-                                <Title level={3}>Admin Actions</Title>
-                                <Card className="shadow-md">
-                                    <Form layout="vertical" onFinish={handleReassign}>
-                                        <Form.Item name="newUserId" label="Reassign Card">
-                                            <Select
-                                                style={{ width: '100%' }}
-                                                placeholder="Select user"
-                                                onChange={(value) => setNewUserId(value)}
-                                            >
-                                                {nonAdminUsers.map(user => (
-                                                    <Option key={user._id} value={user._id}>{user.username}</Option>
-                                                ))}
-                                            </Select>
-                                        </Form.Item>
-                                        <Button type="primary" htmlType="submit" block>
-                                            Reassign
-                                        </Button>
-                                    </Form>
-                                </Card>
-                            </>
-                        )}
-                    </Col>
-                </Row>
-            </Card>
+                                    </div>
+                                    <div>
+                                        <Text strong>Status: </Text>
+                                        <Tag color={card.isActive ? 'success' : 'error'}>
+                                            {card.isActive ? 'Active' : 'Inactive'}
+                                        </Tag>
+                                    </div>
+                                    <div>
+                                        <Text strong>Assigned To: </Text>
+                                        <Text>{card.assignedTo?.username || 'Unassigned'}</Text>
+                                    </div>
+                                    <div>
+                                        <Text strong>Start Date: </Text>
+                                        <Text>{card.startDate ? new Date(card.startDate).toLocaleString() : 'Not started'}</Text>
+                                    </div>
+                                    <div>
+                                        <Text strong>Created At: </Text>
+                                        <Text>{new Date(card.createdAt).toLocaleString()}</Text>
+                                    </div>
+                                    <div>
+                                        <Text strong>Updated At: </Text>
+                                        <Text>{new Date(card.updatedAt).toLocaleString()}</Text>
+                                    </div>
+                                </Space>
+                            </StyledCard>
+                            <Divider />
+                            <Title level={3}>QR Code</Title>
+                            <StyledCard className="text-center">
+                                <QrcodeOutlined style={{ fontSize: '120px', color: '#1890ff' }} />
+                                <Text type="secondary" className="block mt-4">QR Code will be generated here</Text>
+                            </StyledCard>
+                        </Col>
+                    </Row>
+                </div>
+            </StyledCard>
 
             <Modal
                 title="Change URL Code"
