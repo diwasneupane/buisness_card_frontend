@@ -1,43 +1,57 @@
 import React, { useState } from 'react';
 import { createCard } from '../../services/api';
-import Input from '../common/Input';
-import Button from '../Common/Button';
+import { Form, InputNumber, Button, Card, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
 const CardForm = ({ onCardCreated }) => {
-    const [count, setCount] = useState(1);
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (values) => {
+        setLoading(true);
         try {
-            await createCard({ count });
-            setCount(1);
+            await createCard(values);
+            message.success(`Successfully created ${values.count} card(s)`);
+            form.resetFields();
             if (onCardCreated) onCardCreated();
         } catch (error) {
-            console.error('Failed to create cards:', error);
+            message.error('Failed to create cards');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-            <h2 className="text-xl font-bold mb-4">Create New Cards</h2>
-            <div className="mb-4">
-                <label htmlFor="count" className="block text-gray-700 text-sm font-bold mb-2">
-                    Number of cards to create
-                </label>
-                <Input
-                    type="number"
-                    id="count"
-                    min="1"
-                    value={count}
-                    onChange={(e) => setCount(parseInt(e.target.value))}
-                    required
-                    className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                />
-            </div>
-            <Button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                Create Cards
-            </Button>
-        </form>
+        <Card className="shadow-md rounded-lg mb-8">
+            <Form
+                form={form}
+                onFinish={handleSubmit}
+                layout="vertical"
+                initialValues={{ count: 1 }}
+            >
+                <Form.Item
+                    name="count"
+                    label="Number of cards to create"
+                    rules={[
+                        { required: true, message: 'Please input the number of cards' },
+                        { type: 'number', min: 1, message: 'Please enter a number greater than 0' }
+                    ]}
+                >
+                    <InputNumber min={1} className="w-full" />
+                </Form.Item>
+                <Form.Item>
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<PlusOutlined />}
+                        loading={loading}
+                        className="w-full"
+                    >
+                        Create Cards
+                    </Button>
+                </Form.Item>
+            </Form>
+        </Card>
     );
 };
 

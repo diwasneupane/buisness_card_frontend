@@ -22,6 +22,16 @@ export const getUserCards = async () => {
   }
 };
 
+export const getAllCards = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}business-cards/all`);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error fetching all cards:", error);
+    throw error;
+  }
+};
+
 export const createCard = async (data) => {
   try {
     const response = await axios.post(`${BASE_URL}business-cards/create`, data);
@@ -92,15 +102,15 @@ export const reAssignCard = async (urlCode, newUserId) => {
   }
 };
 
-export const setCustomUrlCode = async (urlCode, customUrlCode) => {
+export const setUrlCode = async (cardId, newUrlCode) => {
   try {
     const response = await axios.put(
-      `${BASE_URL}business-cards/${urlCode}/custom-url`,
-      { customUrlCode }
+      `${BASE_URL}business-cards/${cardId}/url-code`,
+      { newUrlCode }
     );
     return response.data.data;
   } catch (error) {
-    console.error("Error setting custom URL:", error);
+    console.error("Error setting URL code:", error);
     throw error;
   }
 };
@@ -113,6 +123,16 @@ export const getNonAdminUsers = async () => {
     return response.data.data;
   } catch (error) {
     console.error("Error fetching non-admin users:", error);
+    throw error;
+  }
+};
+
+export const deleteCard = async (id) => {
+  try {
+    const response = await axios.delete(`${BASE_URL}business-cards/${id}`);
+    return response.data.data;
+  } catch (error) {
+    console.error("Error deleting card:", error);
     throw error;
   }
 };
