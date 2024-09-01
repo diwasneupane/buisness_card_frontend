@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getUserCards, getAllCards, activateCard, deactivateCard, deleteCard } from '../../services/api';
+import { getUserCards, getAllCards, activateCard, deactivateCard, deleteCard, reAssignCard, getNonAdminUsers } from '../../services/api';
 import useAuth from '../../hooks/useAuth';
-import { Table, Tag, Space, Button, message, Popconfirm, Tabs, Card, Typography, Row, Col, Statistic, Input } from 'antd';
-import { EyeOutlined, CheckCircleOutlined, StopOutlined, DeleteOutlined, CreditCardOutlined, AppstoreOutlined, UserOutlined, SearchOutlined } from '@ant-design/icons';
+import { Table, Tag, Space, Button, message, Popconfirm, Tabs, Card, Typography, Row, Col, Statistic, Input, Select, Modal } from 'antd';
+import { EyeOutlined, CheckCircleOutlined, StopOutlined, DeleteOutlined, CreditCardOutlined, AppstoreOutlined, UserOutlined, SearchOutlined, EditOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 const { TabPane } = Tabs;
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const StyledCard = styled(Card)`
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 `;
 
 const StyledTable = styled(Table)`
   .ant-table-thead > tr > th {
-    background-color: #f0f2f5;
+    background-color: #f0f5ff;
     font-weight: 600;
   }
 
@@ -26,7 +27,7 @@ const StyledTable = styled(Table)`
 `;
 
 const ActionButton = styled(Button)`
-  width: 100px;
+  margin: 0 5px;
 `;
 
 const CardList = () => {
@@ -35,10 +36,17 @@ const CardList = () => {
     const [unassignedCards, setUnassignedCards] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState('');
+    const [nonAdminUsers, setNonAdminUsers] = useState([]);
+    const [assignModalVisible, setAssignModalVisible] = useState(false);
+    const [selectedCard, setSelectedCard] = useState(null);
+    const [selectedUserId, setSelectedUserId] = useState(null);
     const { user } = useAuth();
 
     useEffect(() => {
         fetchCards();
+        if (user.role === 'admin') {
+            fetchNonAdminUsers();
+        }
     }, [user]);
 
     const fetchCards = async () => {
@@ -64,6 +72,15 @@ const CardList = () => {
             message.error('Failed to fetch cards: ' + error.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchNonAdminUsers = async () => {
+        try {
+            const users = await getNonAdminUsers();
+            setNonAdminUsers(users);
+        } catch (error) {
+            message.error('Error fetching non-admin users');
         }
     };
 
@@ -97,6 +114,35 @@ const CardList = () => {
         }
     };
 
+    const showAssignModal = (card) => {
+        setSelectedCard(card);
+        setSelectedUserId(null);
+        setAssignModalVisible(true);
+    };
+
+    const handleAssign = async () => {
+        if (!selectedCard || !selectedUserId) {
+            message.error('Please select a user to assign the card to.');
+            return;
+        }
+
+        if (selectedCard.assignedTo && selectedCard.assignedTo._id === selectedUserId) {
+            message.warning('This card is already assigned to the selected user.');
+            return;
+        }
+
+        try {
+            await reAssignCard(selectedCard.urlCode, selectedUserId);
+            message.success('Card reassigned successfully');
+            setAssignModalVisible(false);
+            setSelectedCard(null);
+            setSelectedUserId(null);
+            fetchCards();
+        } catch (error) {
+            message.error('Failed to reassign card: ' + error.message);
+        }
+    };
+
     const columns = [
         {
             title: 'URL Code',
@@ -107,7 +153,7 @@ const CardList = () => {
             title: 'Name',
             dataIndex: ['details', 'name'],
             key: 'name',
-            render: (text) => text || 'N/A',
+            render: (text) => text || 'Undefined',
             filteredValue: [searchText],
             onFilter: (value, record) =>
                 (record.details?.name?.toLowerCase() || '').includes(value.toLowerCase()) ||
@@ -135,11 +181,6 @@ const CardList = () => {
             key: 'startDate',
             render: (date) => date ? new Date(date).toLocaleDateString() : '-',
         },
-        ...(user.role === 'admin' ? [{
-            title: 'Booking ID',
-            dataIndex: 'purchaseId',
-            key: 'purchaseId',
-        }] : []),
         {
             title: 'Actions',
             key: 'actions',
@@ -172,16 +213,24 @@ const CardList = () => {
                         </>
                     )}
                     {user.role === 'admin' && (
-                        <Popconfirm
-                            title="Are you sure you want to delete this card?"
-                            onConfirm={() => handleDelete(record._id)}
-                            okText="Yes"
-                            cancelText="No"
-                        >
-                            <ActionButton icon={<DeleteOutlined />} danger>
-                                Delete
+                        <>
+                            <ActionButton
+                                onClick={() => showAssignModal(record)}
+                                icon={<EditOutlined />}
+                            >
+                                Assign
                             </ActionButton>
-                        </Popconfirm>
+                            <Popconfirm
+                                title="Are you sure you want to delete this card?"
+                                onConfirm={() => handleDelete(record._id)}
+                                okText="Yes"
+                                cancelText="No"
+                            >
+                                <ActionButton icon={<DeleteOutlined />} danger>
+                                    Delete
+                                </ActionButton>
+                            </Popconfirm>
+                        </>
                     )}
                 </Space>
             ),
@@ -312,6 +361,39 @@ const CardList = () => {
                     tabBarGutter={24}
                 />
             </StyledCard>
+
+            <Modal
+                title="Assign Card"
+                visible={assignModalVisible}
+                onOk={handleAssign}
+                onCancel={() => {
+                    setAssignModalVisible(false);
+                    setSelectedCard(null);
+                    setSelectedUserId(null);
+                }}
+            >
+                <Select
+                    style={{ width: '100%' }}
+                    placeholder="Select a user to assign the card"
+                    onChange={(value) => setSelectedUserId(value)}
+                    value={selectedUserId}
+                >
+                    {nonAdminUsers.map(user => (
+                        <Option
+                            key={user._id}
+                            value={user._id}
+                            disabled={selectedCard && selectedCard.assignedTo && selectedCard.assignedTo._id === user._id}
+                        >
+                            {user.username} {selectedCard && selectedCard.assignedTo && selectedCard.assignedTo._id === user._id ? '(Currently Assigned)' : ''}
+                        </Option>
+                    ))}
+                </Select>
+                {selectedCard && selectedCard.assignedTo && (
+                    <Text type="secondary" className="mt-2 block">
+                        Currently assigned to: {selectedCard.assignedTo.username}
+                    </Text>
+                )}
+            </Modal>
         </div>
     );
 };
